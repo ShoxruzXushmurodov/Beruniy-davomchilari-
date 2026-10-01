@@ -1,0 +1,6 @@
+{
+  "name": "Beruniy davomchilari",
+  "description": "Yoshlar 2030 — Kelajak yoshlar qo'lida. Kurslar, testlar, musobaqalar va chat ilovasi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

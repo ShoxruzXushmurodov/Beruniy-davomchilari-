@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isAdmin()  { return signedIn() && request.auth.token.email == "pirnazarovshoxruz567@gmail.com"; }
+    function me(uid)    { return signedIn() && request.auth.uid == uid; }
+
+    // Ochiq profil (ism, familiya, @nom, rasm...)
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if me(uid) && (!('role' in request.resource.data) || isAdmin());
+      allow update: if me(uid) && (!('role' in request.resource.data) || isAdmin())
+                    && request.resource.data.get('order', null) == resource.data.get('order', null);
+      allow delete: if isAdmin();
+      match /meta/{d} { allow read, write: if me(uid); }
+    }
+
+    // Yopiq ma'lumot (telefon, email): egasi va admin
+    match /private/{uid} {
+      allow read: if me(uid) || isAdmin();
+      allow write: if me(uid);
+    }
+
+    // Foydalanuvchi nomi takrorlanmasligi uchun
+    match /usernames/{u} {
+      allow get: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // Nechinchi bo'lib kirgani
+    match /counters/users {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.n == 1;
+      allow update: if signedIn() && request.resource.data.n == resource.data.n + 1;
+    }
+
+    // Faqat admin yozadi, hamma o'qiydi
+    match /courses/{id}       { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /tests/{id}         { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /contests/{id}      { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /notifications/{id} { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /site/{d}           { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /aboutImages/{id}   { allow read: if signedIn(); allow write: if isAdmin(); }
+
+    // Umumiy guruh "Beruniy X avlod"
+    match /messages/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.from == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // Shaxsiy yozishmalar: faqat ikkala tomon o'qiydi
+    match /dms/{pair}/messages/{id} {
+      allow read: if signedIn() && request.auth.uid in pair.split('_');
+      allow create: if signedIn() && request.auth.uid in pair.split('_')
+                    && request.resource.data.from == request.auth.uid;
+    }
+
+    // Foydalanuvchilar yaratgan guruhlar: faqat a'zolar o'qiydi
+    match /groups/{gid} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if signedIn() && request.auth.uid in request.resource.data.members
+                    && request.resource.data.owner == request.auth.uid;
+      match /messages/{id} {
+        allow read: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members;
+        allow create: if signedIn() && request.auth.uid in get(/databases/$(database)/documents/groups/$(gid)).data.members
+                      && request.resource.data.from == request.auth.uid;
+        allow delete: if isAdmin();
+      }
+    }
+  }
+}
